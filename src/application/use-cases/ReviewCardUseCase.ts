@@ -1,22 +1,37 @@
-import { ICardRepository } from '../interfaces/ICardRepository';
-import { ISrsEngine } from '../interfaces/ISrsEngine';
-import { ReviewCardRequestDTO } from '../dtos/ReviewCardRequestDTO';
+import { IReviewRepository } from '../interfaces/IReviewRepository';
+import { SrsAlgorithm } from '../../domain/services/SrsAlgorithm';
+import { SrsData } from '../../domain/value-objects/SrsData';
 import { Review } from '../../domain/entities/Review';
 
 export class ReviewCardUseCase {
-  constructor(
-    private readonly cardRepository: ICardRepository,
-    private readonly srsEngine: ISrsEngine
-  ) {}
+  constructor(private readonly reviewRepository: IReviewRepository) {}
 
-  async execute(dto: ReviewCardRequestDTO): Promise<void> {
-    // 1. DTO'dan Domain Entity'sine (Review) dönüştürme
-    const review = new Review(dto.cardId, dto.userId, dto.performanceRating);
+  async execute(userId: string, cardId: string, grade: number): Promise<void> {
+    // 1. Repository'den mevcut Review kaydını getir
+    let review = await this.reviewRepository.getReview(userId, cardId);
 
-    // 2. İş Mantığı: SRS Motorunu çalıştırarak yeni aralıkları (interval, ease factor vb.) hesaplama
-    this.srsEngine.calculateNextReview(review);
+    let currentSrs: SrsData;
 
-    // 3. Altyapı İşlemi: Repository aracılığıyla veritabanına kaydetme
-    await this.cardRepository.saveReview(review);
+    if (review) {
+      currentSrs = review.srsData;
+    } else {
+      // 2. Yoksa varsayılan değerlerle yeni bir SrsData ve Review oluştur
+      currentSrs = new SrsData();
+      // ID veritabanı seviyesinde veya entity factory üzerinden verilebilir
+      review = new Review("", userId, cardId, currentSrs, new Date(), new Date());
+    }
+
+    // 3. SrsAlgorithm servisine mevcut durumu ve gelen grade değerini verip yeni durumu al
+    const newSrs = SrsAlgorithm.calculate(currentSrs, grade);
+
+    // 4. Yeni duruma göre nextReviewDate hesapla (Date.now() + interval * 24h)
+    const nextReviewDate = new Date(Date.now() + newSrs.interval * 24 * 60 * 60 * 1000);
+
+    // 5. Güncellenmiş nesneyi repository üzerinden kaydet
+    review.srsData = newSrs;
+    review.nextReviewDate = nextReviewDate;
+    review.lastReviewedAt = new Date();
+
+    await this.reviewRepository.upsertReview(review);
   }
 }
