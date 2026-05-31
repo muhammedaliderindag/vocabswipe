@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: srs_user
+      POSTGRES_PASSWORD: srs_password
+      POSTGRES_DB: srs_db
+    # Dış dünyaya kapalı, sadece Docker içi networke açık
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - srs_backend_network
+
+  nextjs_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nextjs_api
+    restart: always
+    environment:
+      - NODE_ENV=production
+      # Veritabanına container name 'postgres_db' üzerinden güvenli bağlantı
+      - DATABASE_URL=postgresql://srs_user:srs_password@postgres_db:5432/srs_db?schema=public
+    # Dış dünyaya kapalı, sadece Docker içi networke açık
+    expose:
+      - "3000"
+    depends_on:
+      - postgres_db
+    networks:
+      - srs_backend_network
+
+  nginx_dispatcher:
+    image: nginx:alpine
+    container_name: nginx_dispatcher
+    restart: always
+    # Tek çıkış noktası, sadece Nginx port 80 üzerinden dışarıya açık
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - nextjs_api
+    networks:
+      - srs_backend_network
+
+volumes:
+  postgres_data:
+
+networks:
+  srs_backend_network:
+    driver: bridge
