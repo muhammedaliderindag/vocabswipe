@@ -9,7 +9,6 @@ services:
       POSTGRES_USER: srs_user
       POSTGRES_PASSWORD: srs_password
       POSTGRES_DB: srs_db
-    # Dış dünyaya kapalı, sadece Docker içi networke açık
     expose:
       - "5432"
     volumes:
@@ -19,15 +18,13 @@ services:
 
   nextjs_api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: nextjs_api
     restart: always
     environment:
       - NODE_ENV=production
-      # Veritabanına container name 'postgres_db' üzerinden güvenli bağlantı
       - DATABASE_URL=postgresql://srs_user:srs_password@postgres_db:5432/srs_db?schema=public
-    # Dış dünyaya kapalı, sadece Docker içi networke açık
     expose:
       - "3000"
     depends_on:
@@ -35,17 +32,28 @@ services:
     networks:
       - srs_backend_network
 
+  flutter_web:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: flutter_web
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - srs_backend_network
+
   nginx_dispatcher:
     image: nginx:alpine
     container_name: nginx_dispatcher
     restart: always
-    # Tek çıkış noktası, sadece Nginx port 80 üzerinden dışarıya açık
     ports:
       - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./backend/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - nextjs_api
+      - flutter_web
     networks:
       - srs_backend_network
 

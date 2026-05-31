@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "SRS Backend",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "google-auth-library": "^9.x",
+    "jsonwebtoken": "^9.x",
+    "next": "^14.x",
+    "react": "^18.x",
+    "react-dom": "^18.x"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.x",
+    "@types/node": "^20.x",
+    "@types/react": "^18.x",
+    "prisma": "^5.22.0",
+    "typescript": "^5.x"
+  },
+  "prisma": {
+    "schema": "src/infrastructure/database/schema.prisma"
+  }
+}
